@@ -11,6 +11,25 @@
   <script src="ractive.js"></script>
   <script src="socketio.js"></script>
 
+  <style>
+  @keyframes fade {
+    from { opacity: 1.0; }
+    50% { opacity: 0.4; }
+    to { opacity: 1.0; }
+  }
+   
+  @-webkit-keyframes fade {
+      from { opacity: 1.0; }
+      50% { opacity: 0.4; }
+      to { opacity: 1.0; }
+  }
+   
+  .blink {
+      animation:fade 3000ms infinite;
+      -webkit-animation:fade 3000ms infinite;
+  }
+  </style>
+  
   <h1>Connect Four</h1>
   <button onclick="new_game_server()">new game</button>
   <div id='container'></div>
@@ -33,7 +52,8 @@
       {{#each data.grid[column_index] : y}}
         <circle
          cx="{{ radius + radius*2 * column_index }}"
-         cy="{{ radius + radius*2 * (y+1) }}" r="{{radius}}" 
+         cy="{{ radius + radius*2 * (y+1) }}" r="{{radius}}"
+         data-x="{{column_index}}" data-y="{{y}}"
         stroke="black" fill="{{.}}"/>
       {{/each}}
     {{/each}}
@@ -113,7 +133,10 @@
       }
       for(var i=0; i<4; i++){
         var pos = circles[i];
-        grid[pos[0]][pos[1]]='black';
+        var x = pos[0];
+        var y = pos[1];
+        //grid[x][y]='black';
+        $('circle[data-x="'+x+'"][data-y="'+y+'"]').addClass('blink');
       }
       ractive.set('data.grid', grid);
       return true;
@@ -168,6 +191,7 @@
     }
 
     function new_game(){
+      $('circle').removeClass();
       empty_grid();
       ractive.set('data.win', null);
       color = colors[0];
@@ -175,7 +199,8 @@
     }
     function new_game_server(){
       socket.emit('new_game_server');
-      socket.emit('load_page_request');
+      //socket.emit('load_page_request');
+      new_game();
     }
 
     socket = io.connect('http://localhost:8080');
@@ -200,6 +225,7 @@
     function on_load_page_response(data){
       console.log('on_load_page_response');
       
+      $('circle').removeClass();
       grid = data.grid;
       win = data.win;
       color = data.color;
