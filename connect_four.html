@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang='en-GB'>
+<head>
+  <meta charset='utf-8'>
+  <title>Connect Four Game</title>
+</head>
+
+<body>
+
+  <script src="jquery-3.0.0.min.js"></script>
+  <script src="ractive.js"></script>
+  
+  <h1>Connect Four</h1>
+  <button onclick="new_game()">new game</button>
+  <div id='container'></div>
+  <script id='template' type='text/ractive'>
+    <div>
+      {{#if !win}}
+        {{color}}'s turn
+      {{else}}
+        {{win}} has won
+      {{/if}}
+    </div>
+    <svg>
+    {{#each grid : column_index}}
+        <circle class="in" data-column="{{column_index}}"
+         cx="{{ radius + radius*2 * column_index }}"
+         cy="{{ radius }}" r="{{radius}}" 
+        stroke="black" fill="grey"/>
+      {{#each grid[column_index] : y}}
+        <circle
+         cx="{{ radius + radius*2 * column_index }}"
+         cy="{{ radius + radius*2 * (y+1) }}" r="{{radius}}" 
+        stroke="black" fill="{{.}}"/>
+      {{/each}}
+    {{/each}}
+    </svg>
+  </script>
+  
+  <script>
+    var ractive = new Ractive({
+      el: '#container',
+      template: '#template',
+      data: {
+        radius: 10,
+      }
+    });
+
+    const size_x = 7, size_y = 6;
+    var colors = ['blue', 'green'];
+    var color;
+    ractive.set('color', color);
+
+    function empty_grid(){
+      var grid = [];
+      for(var x=0; x<size_x; x++){
+        var column = [];
+        for(var y=0; y<size_y; y++){
+          column.push('white');
+        }
+        grid.push(column);
+      }
+      ractive.set('grid', grid);
+    }
+    
+    function insert(column_index){
+      var grid = ractive.get('grid');
+      var column = grid[column_index];
+      var inserted = false;
+      for(var y=(size_y-1); y>=0; y--){
+        if(column[y] === 'white'){
+          column[y] = color;
+          inserted = true;
+          break;
+        }
+      }
+      ractive.set('grid', grid);
+      return inserted;
+    }
+
+    function valid_indices(x, y){
+      return (x>=0 && x<size_x) && (y>=0 && y<size_y);
+    }
+
+    const directions = [
+        [0,1],
+        [1,0],
+        [0,-1],
+        [-1,0],
+        [1,1],
+        [-1,-1],
+        [-1, 1],
+        [1, -1]
+      ];
+
+    function check_pos_dir(x, y, direction){
+      var grid = ractive.get('grid');
+      var x2=x;
+      var y2=y;
+      for(var c=0; c<4; c++){
+          x2 += direction[0];
+          y2 += direction[1];
+          if(!valid_indices(x2, y2)) return false;
+          if(grid[x2][y2]!==color) return false;
+      }
+      return true;
+    }
+
+    function check_endgame(){
+      for(var x=0; x<size_x; x++){
+        for(var y=0; y<size_y; y++){
+          for(var dir_i=0; dir_i<directions.length; dir_i++){
+            var direction = directions[dir_i];
+            var result = check_pos_dir(x,y, direction);
+            if(result) return true;
+          }
+        }
+      }
+      return false;
+    }
+    
+    function setMoveHandlers(){
+      $('.in').each(function(){
+        $(this).click(function(){
+          var win = ractive.get('win');
+          if(win) return;
+          var inserted = insert($(this).data('column'));
+          if(!inserted){
+            alert('full');
+            return;
+          }else{
+            var end = check_endgame();
+            if(end){
+              alert(color+' wins');
+              ractive.set('win', color);
+            }
+          }
+          color = colors[(colors.indexOf(color)+1)%(colors.length)];
+          ractive.set('color', color);
+        });
+      }); 
+    }
+
+    function new_game(){
+      empty_grid();
+      ractive.set('win', null);
+      color = colors[0];
+      ractive.set('color', color);
+    }
+
+    new_game();
+    setMoveHandlers();
+  </script>
+</body>
+</html>
