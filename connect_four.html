@@ -7,6 +7,13 @@
 
 <body>
 
+  <!--
+changes in this commit:
+offline/hotseat mode working again, changed circle insertion now possible everywhere in column, added color of first turn in new game, winning circles blink animation still present after page reload (winning circles state is better handled), new game is not automatically initiated (because it require choosing the color that plays first turn).
+
+todo: code need beautification (naming, erasing, spacing)
+  -->
+
   <script src="jquery-3.0.0.min.js"></script>
   <script src="ractive.js"></script>
   <script src="socketio.js"></script>
@@ -29,45 +36,67 @@
       -webkit-animation:fade 3000ms infinite;
   }
   </style>
+
+  <div id="container"></div>
   
-  <h1>Connect Four</h1>
-  <button onclick="new_game_server()">new game</button>
-  <div id='container'></div>
-  <script id='template' type='text/ractive'>
-    <div>
-      {{#if data.game_in_progress}}
-        {{#if !data.win}}
-          {{data.color}}'s turn
-        {{else}}
-          {{data.win}} has won
-        {{/if}}
+  <script id="template" type="text/ractive">
+    <b>Connect Four</b> <span>{{status}}</span> <br>
+    <button onclick="new_game_server('blue')">
+      new game (blue begins)
+    </button> <br>
+    <button onclick="new_game_server('green')">
+      new game (green begins)
+    </button> <br>
+    {{#if data.game_in_progress}}
+      {{#if !data.win}}
+        <span style="background-color:{{data.color}}; width:1em; height:1em; display:inline-block;"></span>
+        {{data.color}}'s turn
+      {{else}}
+        <span style="background-color:{{data.win}}; width:1em; height:1em; display:inline-block;"></span> {{data.win}} has won
       {{/if}}
-    </div>
+    <br>
     <svg>
     {{#each data.grid : column_index}}
-        <circle class="in" data-column="{{column_index}}"
-         cx="{{ radius + radius*2 * column_index }}"
-         cy="{{ radius }}" r="{{radius}}" 
-        stroke="black" fill="grey"/>
       {{#each data.grid[column_index] : y}}
         <circle
+          class="in {{this.blink?'blink':''}}" data-column="{{column_index}}"
          cx="{{ radius + radius*2 * column_index }}"
-         cy="{{ radius + radius*2 * (y+1) }}" r="{{radius}}"
+         cy="{{ radius + radius*2 * y }}" r="{{radius-1}}"
          data-x="{{column_index}}" data-y="{{y}}"
-        stroke="black" fill="{{.}}"/>
+        stroke="black" fill="{{this.color}}"
+        />
       {{/each}}
     {{/each}}
     </svg>
+    {{/if}}
   </script>
   
   <script>
+    /*
+    function blinkOrNot(x,y){
+      var blink = false;
+      var winning_circles = ractive.get('data.winning_circles');
+      winning_circles.forEach(circle=>{
+        if(x==circle[0] && y==circle[1]){
+          blink=true; return;
+        }
+      });
+      return blink;
+    }
+    */
     var ractive = new Ractive({
       el: '#container',
       template: '#template',
       data: {
         radius: 10,
-        game_in_progress: false,
-      }
+        data: {
+          game_in_progress: false,
+          //winning_circles: [],
+        },
+      },
+      computed: {
+        //blinkOrNot,
+      },
     });
 
     const size_x = 7, size_y = 6;
@@ -80,21 +109,22 @@
       for(var x=0; x<size_x; x++){
         var column = [];
         for(var y=0; y<size_y; y++){
-          column.push('white');
+          column.push({color:'white', blink:false});
         }
         grid.push(column);
       }
-      ractive.set('data.grid', grid);
+      return grid;
     }
     
+    // grid operation
     function insert(column_index){
       //console.log('insert: '+column_index);
       var grid = ractive.get('data.grid');
       var column = grid[column_index];
       var inserted = false;
       for(var y=(size_y-1); y>=0; y--){
-        if(column[y] === 'white'){
-          column[y] = color;
+        if(column[y].color === 'white'){
+          column[y].color = color;
           inserted = true;
           break;
         }
@@ -118,7 +148,14 @@
         [-1, 1],
         [1, -1]
       ];
-
+    
+    /*
+    function addBlink(pos){
+      $('circle[data-x="'+pos[0]+'"][data-y="'+pos[1]+'"]').addClass('blink');
+    }
+    */
+    
+    // grid operation
     function check_pos_dir(x, y, direction){
       var grid = ractive.get('data.grid');
       var x2=x;
@@ -128,16 +165,19 @@
         x2 += direction[0];
         y2 += direction[1];
         if(!valid_indices(x2, y2)) return false;
-        if(grid[x2][y2]!==color) return false;
+        if(grid[x2][y2].color !== color) return false;
         circles.push([x2, y2]);
       }
+      //var circles = [];
       for(var i=0; i<4; i++){
         var pos = circles[i];
         var x = pos[0];
         var y = pos[1];
         //grid[x][y]='black';
-        $('circle[data-x="'+x+'"][data-y="'+y+'"]').addClass('blink');
+        //circles.push([x, y]);
+        grid[x][y].blink = true;
       }
+      //ractive.set('data.winning_circles', circles);
       ractive.set('data.grid', grid);
       return true;
     }
@@ -160,50 +200,95 @@
       ractive.set('data.color', color);
     }
     
+    function columnClick(columnIndex){
+      // is game in progress?
+      var win = ractive.get("data.win");
+      if(win) return;
+
+      // try to insert
+      var inserted = insert(columnIndex);
+      if(!inserted){
+        // unable to insert
+        alert("full");
+        return;
+      }else{
+        // able to insert, inserted
+        
+        socket.emit('insert_request', { column: columnIndex });
+        // endgame
+        var end = check_endgame();
+        if(end){
+          ractive.set('data.win', color);
+          alert(color+' wins');
+        }
+      }
+      // turns
+      next_turn();
+    }
+    
     function setMoveHandlers(){
-      $('.in').each(function(){
-        $(this).off('click').click(function(){
-          // is game in progress?
-          var win = ractive.get('data.win');
-          if(win) return;
-          var column = $(this).data('column');
-          // try to insert
-          var inserted = insert(column);
-          if(!inserted){
-            // unable to insert
-            alert('full');
-            return;
-          }else{
-            // able to insert, inserted
-            
-            socket.emit('insert_request', { column: column });
-            // endgame
-            var end = check_endgame();
-            if(end){
-              ractive.set('data.win', color);
-              alert(color+' wins');
-            }
-          }
-          // turns
-          next_turn();
+      $(".in").each(function(){
+        $(this).off("click").click(function(){
+          
+          console.log("setMoveHandlers");
+          columnClick($(this).data("column"));
+          
         });
       }); 
     }
-
-    function new_game(){
-      $('circle').removeClass();
-      empty_grid();
-      ractive.set('data.win', null);
-      color = colors[0];
-      ractive.set('data.color', color);
+    
+    function setHoverHandlers(){
+      //for(var column_index)
     }
-    function new_game_server(){
-      socket.emit('new_game_server');
+    
+    function setAllHandlers(){
+      setMoveHandlers();
+      //setHoverHandlers();
+    }
+    
+    function setColor(colorToSet){
+      color = colorToSet;
+      ractive.set('data.color', colorToSet);
+    }
+    
+    function new_game(firstTurnColor){
+      ractive.set('data.game_in_progress', false);
+      ractive.set('data.winning_circles', []);
+      //$('circle').removeClass('blink');
+      
+      grid=empty_grid();
+      ractive.set('data.grid', grid);
+      
+      ractive.set('data.win', null);
+      
+      setColor(firstTurnColor);
+      
+      
+      ractive.set('data.game_in_progress', true);
+      setAllHandlers();
+    }
+    function new_game_server(firstTurnColor){
+      console.log('new_game_server');
+      new_game(firstTurnColor);
+      socket.emit('new_game_server', {color: firstTurnColor});
       //socket.emit('load_page_request');
-      new_game();
     }
 
     socket = io.connect('http://localhost:8080');
+    function setStatus(status){
+      ractive.set('status', status);
+    }
+    function offline(){
+      setStatus('offline! (connect error)');
+    }
+    socket.on('connect_error', offline);
+    socket.on('reconnect_error', offline);
+    
+    function online(){
+      setStatus('(online)');
+    }
+    socket.on('connect', online);
+    socket.on('reconnect', online);
     
     function on_insert_propagated(data){
       console.log('on_insert_propagated');
@@ -225,20 +310,31 @@
     function on_load_page_response(data){
       console.log('on_load_page_response');
       
-      $('circle').removeClass();
-      grid = data.grid;
-      win = data.win;
-      color = data.color;
+      ractive.set('data.game_in_progress', false);
       
+      //$('circle').removeClass('blink');
+      //var {grid, win, color, winning_circles} = data;
+      /*
+      grid = data.grid;
+      win=data.win;
+      color=data.color;
+      //winning_circles=data.winning_circles;
+      ractive.set('data.winning_circles', data.winning_circles);
+      //winning_circles.forEach(circle=>addBlink(circle));
+      */
+      var properties = ['winning_circles','grid','win','color','game_in_progress'];
+      properties.forEach(
+        function(property){ ractive.set('data.'+property, data[property]) });
+
       ractive.set('data', data);
-      setMoveHandlers();
-      ractive.set('data.game_in_progress', true);
+      setAllHandlers();
+      //ractive.set('data.game_in_progress', true);
     }
     socket.on('load_page_response', on_load_page_response);
     
     function on_new_game_propagated(data){
       console.log('on_new_game_propagated');
-      new_game();
+      new_game(data.color);
     }
     socket.on('new_game_propagated', on_new_game_propagated);
     

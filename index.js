@@ -1,10 +1,22 @@
+/*
+
+changes in this commit:
+offline/hotseat mode working again, changed circle insertion now possible everywhere in column, added color of first turn in new game, winning circles blink animation still present after page reload (winning circles state is better handled), new game is not automatically initiated (because it require choosing the color that plays first turn).
+
+todo: code need beautification (naming, erasing, spacing)
+
+*/
+
 var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
 app.use(express.static('.'));
-server.listen(8080);
+
+server.listen(8080, function () {
+  console.log('listening on port 8080!');
+});
 
 app.get('/', function (req, res) {
   res.redirect('/connect_four.html');
@@ -14,24 +26,26 @@ const size_x = 7, size_y = 6;
 const colors = ['blue', 'green'];
 var color;
 
+// grid operation
 function empty_grid(){
   grid = [];
   for(var x=0; x<size_x; x++){
     var column = [];
     for(var y=0; y<size_y; y++){
-      column.push('white');
+      column.push({color:'white', blink:false});
     }
     grid.push(column);
   }
   return grid;
 }
 
+// grid operation
 function insert(column_index){
   var column = grid[column_index];
   var inserted = false;
   for(var y=(size_y-1); y>=0; y--){
-    if(column[y] === 'white'){
-      column[y] = color;
+    if(column[y].color === 'white'){
+      column[y].color = color;
       inserted = true;
       break;
     }
@@ -54,6 +68,7 @@ const directions = [
     [1, -1]
   ];
 
+// grid operation
 function check_pos_dir(x, y, direction){
   var x2=x;
   var y2=y;
@@ -62,13 +77,20 @@ function check_pos_dir(x, y, direction){
     x2 += direction[0];
     y2 += direction[1];
     if(!valid_indices(x2, y2)) return false;
-    if(grid[x2][y2]!==color) return false;
+    if(grid[x2][y2].color!==color) return false;
+    //circles.push([x2, y2]);
+    //grid[x2][y2].blink = true;
     circles.push([x2, y2]);
   }
-  for(var i=0; i<4; i++){
-    var pos = circles[i];
-    grid[pos[0]][pos[1]]='black';
-  }
+  //var circles = [];
+    for(var i=0; i<4; i++){
+      var pos = circles[i];
+      var x = pos[0];
+      var y = pos[1];
+      //grid[x][y]='black';
+      //circles.push([x, y]);
+      grid[x][y].blink = true;
+    }
   return true;
 }
 
@@ -85,18 +107,27 @@ function check_endgame(){
   return false;
 }
 
-function new_game(){
+function new_game(firstTurnColor){
   grid = empty_grid();
   win = null;
-  color = colors[0];  
+  color = firstTurnColor;
+  game_in_progress = true;
 }
-new_game();
+
+function initialState(){
+  grid = empty_grid();
+  win = null;
+  color = null;
+  game_in_progress = false;
+}
+initialState();
+
 io.on('connection', function (socket) {
-  function on_new_game(){
-    new_game()
-    socket.broadcast.emit('new_game_propagated');
+  function on_new_game_server(data){
+    new_game(data.color);
+    socket.broadcast.emit('new_game_propagated', {color});
   }
-  socket.on('new_game_server', on_new_game);
+  socket.on('new_game_server', on_new_game_server);
 
   function on_insert_request(data){
     console.log('on insert');
@@ -129,10 +160,7 @@ io.on('connection', function (socket) {
   
   function on_load_page_request(){
     console.log('on_load_page_request');
-    data = {};
-    data.grid = grid;
-    data.win = win;
-    data.color = color;
+    data = {win, color, grid, game_in_progress};
     socket.emit('load_page_response', data);
   }
   socket.on('load_page_request', on_load_page_request);
