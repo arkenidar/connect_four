@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang='en-GB'>
+
 <head>
   <meta charset='utf-8'>
   <title>Connect Four Game</title>
@@ -7,47 +8,82 @@
 
 <body>
 
-  <!--
-changes in this commit:
-offline/hotseat mode working again, changed circle insertion now possible everywhere in column, added color of first turn in new game, winning circles blink animation still present after page reload (winning circles state is better handled), new game is not automatically initiated (because it require choosing the color that plays first turn).
+  <script src="https://www.gstatic.com/firebasejs/3.1.0/firebase.js"></script>
+  <script>
+    // Initialize Firebase
+    var config = {
+      apiKey: "AIzaSyAt-VHzUPfaiTSHZhsAKg-o_IoIQ1U_JJ0",
+      authDomain: "connectfour-2182a.firebaseapp.com",
+      databaseURL: "https://connectfour-2182a.firebaseio.com",
+      storageBucket: "",
+    };
+    firebase.initializeApp(config);
+  </script>
 
-todo: code need beautification (naming, erasing, spacing)
-  -->
+  <script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '1029103410471170',
+      xfbml      : true,
+      version    : 'v2.6'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+  </script>
 
   <script src="jquery-3.0.0.min.js"></script>
   <script src="ractive.js"></script>
   <script src="socketio.js"></script>
 
   <style>
-  @keyframes fade {
-    from { opacity: 1.0; }
-    50% { opacity: 0.4; }
-    to { opacity: 1.0; }
-  }
-   
-  @-webkit-keyframes fade {
-      from { opacity: 1.0; }
-      50% { opacity: 0.4; }
-      to { opacity: 1.0; }
-  }
-   
-  .blink {
-      animation:fade 3000ms infinite;
-      -webkit-animation:fade 3000ms infinite;
-  }
+    @keyframes fade {
+      from {
+        opacity: 1.0;
+      }
+      50% {
+        opacity: 0.4;
+      }
+      to {
+        opacity: 1.0;
+      }
+    }
+    
+    @-webkit-keyframes fade {
+      from {
+        opacity: 1.0;
+      }
+      50% {
+        opacity: 0.4;
+      }
+      to {
+        opacity: 1.0;
+      }
+    }
+    
+    .blink {
+      animation: fade 3000ms infinite;
+      -webkit-animation: fade 3000ms infinite;
+    }
   </style>
 
   <div id="container"></div>
-  
+
   <script id="template" type="text/ractive">
     <b>Connect Four</b> <span>{{status}}</span> <br>
-    <button onclick="new_game_server('blue')">
+    <button onclick="newGameServer('blue')">
       new game (blue begins)
     </button> <br>
-    <button onclick="new_game_server('green')">
+    <button onclick="newGameServer('green')">
       new game (green begins)
     </button> <br>
-    {{#if data.game_in_progress}}
+    {{#if data.gameInProgress}}
       {{#if !data.win}}
         <span style="background-color:{{data.color}}; width:1em; height:1em; display:inline-block;"></span>
         {{data.color}}'s turn
@@ -56,13 +92,13 @@ todo: code need beautification (naming, erasing, spacing)
       {{/if}}
     <br>
     <svg>
-    {{#each data.grid : column_index}}
-      {{#each data.grid[column_index] : y}}
+    {{#each data.grid : columnIndex}}
+      {{#each data.grid[columnIndex] : y}}
         <circle
-          class="in {{this.blink?'blink':''}}" data-column="{{column_index}}"
-         cx="{{ radius + radius*2 * column_index }}"
+          class="in {{this.blink?'blink':''}}" data-column="{{columnIndex}}"
+         cx="{{ radius + radius*2 * columnIndex }}"
          cy="{{ radius + radius*2 * y }}" r="{{radius-1}}"
-         data-x="{{column_index}}" data-y="{{y}}"
+         data-x="{{columnIndex}}" data-y="{{y}}"
         stroke="black" fill="{{this.color}}"
         />
       {{/each}}
@@ -70,45 +106,31 @@ todo: code need beautification (naming, erasing, spacing)
     </svg>
     {{/if}}
   </script>
-  
+
   <script>
-    /*
-    function blinkOrNot(x,y){
-      var blink = false;
-      var winning_circles = ractive.get('data.winning_circles');
-      winning_circles.forEach(circle=>{
-        if(x==circle[0] && y==circle[1]){
-          blink=true; return;
-        }
-      });
-      return blink;
-    }
-    */
     var ractive = new Ractive({
       el: '#container',
       template: '#template',
       data: {
         radius: 10,
         data: {
-          game_in_progress: false,
-          //winning_circles: [],
+          gameInProgress: false,
         },
       },
       computed: {
-        //blinkOrNot,
       },
     });
 
-    const size_x = 7, size_y = 6;
+    const sizeX = 7, sizeY = 6;
     const colors = ['blue', 'green'];
     var color;
     ractive.set('data.color', color);
 
-    function empty_grid(){
+    function emptyGrid(){
       var grid = [];
-      for(var x=0; x<size_x; x++){
+      for(var x=0; x<sizeX; x++){
         var column = [];
-        for(var y=0; y<size_y; y++){
+        for(var y=0; y<sizeY; y++){
           column.push({color:'white', blink:false});
         }
         grid.push(column);
@@ -117,12 +139,12 @@ todo: code need beautification (naming, erasing, spacing)
     }
     
     // grid operation
-    function insert(column_index){
-      //console.log('insert: '+column_index);
+    function insert(columnIndex){
+      //console.log('insert: '+columnIndex);
       var grid = ractive.get('data.grid');
-      var column = grid[column_index];
+      var column = grid[columnIndex];
       var inserted = false;
-      for(var y=(size_y-1); y>=0; y--){
+      for(var y=(sizeY-1); y>=0; y--){
         if(column[y].color === 'white'){
           column[y].color = color;
           inserted = true;
@@ -133,8 +155,8 @@ todo: code need beautification (naming, erasing, spacing)
       return inserted;
     }
 
-    function valid_indices(x, y){
-      return (x>=0 && x<size_x) && (y>=0 && y<size_y);
+    function validIndices(x, y){
+      return (x>=0 && x<sizeX) && (y>=0 && y<sizeY);
     }
 
     const directions =
@@ -149,14 +171,8 @@ todo: code need beautification (naming, erasing, spacing)
         [1, -1]
       ];
     
-    /*
-    function addBlink(pos){
-      $('circle[data-x="'+pos[0]+'"][data-y="'+pos[1]+'"]').addClass('blink');
-    }
-    */
-    
     // grid operation
-    function check_pos_dir(x, y, direction){
+    function checkPosDir(x, y, direction){
       var grid = ractive.get('data.grid');
       var x2=x;
       var y2=y;
@@ -164,30 +180,26 @@ todo: code need beautification (naming, erasing, spacing)
       for(var c=0; c<4; c++){
         x2 += direction[0];
         y2 += direction[1];
-        if(!valid_indices(x2, y2)) return false;
+        if(!validIndices(x2, y2)) return false;
         if(grid[x2][y2].color !== color) return false;
         circles.push([x2, y2]);
       }
-      //var circles = [];
       for(var i=0; i<4; i++){
         var pos = circles[i];
         var x = pos[0];
         var y = pos[1];
-        //grid[x][y]='black';
-        //circles.push([x, y]);
         grid[x][y].blink = true;
       }
-      //ractive.set('data.winning_circles', circles);
       ractive.set('data.grid', grid);
       return true;
     }
 
-    function check_endgame(){
-      for(var x=0; x<size_x; x++){
-        for(var y=0; y<size_y; y++){
-          for(var dir_i=0; dir_i<directions.length; dir_i++){
-            var direction = directions[dir_i];
-            var result = check_pos_dir(x,y, direction);
+    function checkEndGame(){
+      for(var x=0; x<sizeX; x++){
+        for(var y=0; y<sizeY; y++){
+          for(var dirI=0; dirI<directions.length; dirI++){
+            var direction = directions[dirI];
+            var result = checkPosDir(x,y, direction);
             if(result) return true;
           }
         }
@@ -195,7 +207,7 @@ todo: code need beautification (naming, erasing, spacing)
       return false;
     }
     
-    function next_turn(){
+    function nextTurn(){
       color = colors[(colors.indexOf(color)+1)%(colors.length)];
       ractive.set('data.color', color);
     }
@@ -214,16 +226,16 @@ todo: code need beautification (naming, erasing, spacing)
       }else{
         // able to insert, inserted
         
-        socket.emit('insert_request', { column: columnIndex });
+        socket.emit('insertRequest', { column: columnIndex });
         // endgame
-        var end = check_endgame();
+        var end = checkEndGame();
         if(end){
           ractive.set('data.win', color);
           alert(color+' wins');
         }
       }
       // turns
-      next_turn();
+      nextTurn();
     }
     
     function setMoveHandlers(){
@@ -238,7 +250,7 @@ todo: code need beautification (naming, erasing, spacing)
     }
     
     function setHoverHandlers(){
-      //for(var column_index)
+      //for(var columnIndex)
     }
     
     function setAllHandlers(){
@@ -251,27 +263,24 @@ todo: code need beautification (naming, erasing, spacing)
       ractive.set('data.color', colorToSet);
     }
     
-    function new_game(firstTurnColor){
-      ractive.set('data.game_in_progress', false);
-      ractive.set('data.winning_circles', []);
-      //$('circle').removeClass('blink');
+    function newGame(firstTurnColor){
+      ractive.set('data.gameInProgress', false);
+      ractive.set('data.winningCircles', []);
       
-      grid=empty_grid();
+      grid=emptyGrid();
       ractive.set('data.grid', grid);
       
       ractive.set('data.win', null);
       
       setColor(firstTurnColor);
       
-      
-      ractive.set('data.game_in_progress', true);
+      ractive.set('data.gameInProgress', true);
       setAllHandlers();
     }
-    function new_game_server(firstTurnColor){
-      console.log('new_game_server');
-      new_game(firstTurnColor);
-      socket.emit('new_game_server', {color: firstTurnColor});
-      //socket.emit('load_page_request');
+    function newGameServer(firstTurnColor){
+      console.log('newGameServer');
+      newGame(firstTurnColor);
+      socket.emit('newGameServer', {color: firstTurnColor});
     }
 
     socket = io.connect('http://localhost:8080');
@@ -290,57 +299,41 @@ todo: code need beautification (naming, erasing, spacing)
     socket.on('connect', online);
     socket.on('reconnect', online);
     
-    function on_insert_propagated(data){
-      console.log('on_insert_propagated');
+    function onInsertPropagated(data){
+      console.log('onInsertPropagated');
       var inserted = insert(data.column);
       if(inserted){
-        var end = check_endgame();
+        var end = checkEndGame();
         if(end){
           win = color;
           ractive.set('data.win', win);
           alert(color+' wins');
         }
         else{
-          next_turn();
+          nextTurn();
         }
       }
     }
-    socket.on('insert_propagated', on_insert_propagated);
+    socket.on('insertPropagated', onInsertPropagated);
     
-    function on_load_page_response(data){
-      console.log('on_load_page_response');
+    function onLoadPageResponse(data){
+      console.log('onLoadPageResponse');
       
-      ractive.set('data.game_in_progress', false);
-      
-      //$('circle').removeClass('blink');
-      //var {grid, win, color, winning_circles} = data;
-      /*
-      grid = data.grid;
-      win=data.win;
-      color=data.color;
-      //winning_circles=data.winning_circles;
-      ractive.set('data.winning_circles', data.winning_circles);
-      //winning_circles.forEach(circle=>addBlink(circle));
-      */
-      var properties = ['winning_circles','grid','win','color','game_in_progress'];
-      properties.forEach(
-        function(property){ ractive.set('data.'+property, data[property]) });
-
       ractive.set('data', data);
       setAllHandlers();
-      //ractive.set('data.game_in_progress', true);
     }
-    socket.on('load_page_response', on_load_page_response);
+    socket.on('loadPageResponse', onLoadPageResponse);
     
-    function on_new_game_propagated(data){
-      console.log('on_new_game_propagated');
-      new_game(data.color);
+    function onNewGamePropagated(data){
+      console.log('onNewGamePropagated');
+      newGame(data.color);
     }
-    socket.on('new_game_propagated', on_new_game_propagated);
+    socket.on('newGamePropagated', onNewGamePropagated);
     
     // load page
-    socket.emit('load_page_request');
+    socket.emit('loadPageRequest');
     
   </script>
 </body>
+
 </html>
