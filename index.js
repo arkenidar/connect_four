@@ -111,7 +111,7 @@ initialState();
 io.on('connection', function (socket) {
   function onNewGameServer(data) {
     newGame(data.color);
-    socket.broadcast.emit('newGamePropagated', { color });
+    socket.broadcast.emit('newGamePropagated', { color:color });
   }
   socket.on('newGameServer', onNewGameServer);
 
@@ -146,7 +146,7 @@ io.on('connection', function (socket) {
 
   function onLoadPageRequest() {
     console.log('onLoadPageRequest');
-    data = { win, color, grid, gameInProgress };
+    data = { win:win, color:color, grid:grid, gameInProgress:ga };
     socket.emit('loadPageResponse', data);
   }
   socket.on('loadPageRequest', onLoadPageRequest);
