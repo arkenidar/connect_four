@@ -44,6 +44,64 @@
   <script src="socketio.js"></script>
 
   <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    #container {
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 14px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      max-width: 560px;
+      background-color: #f0f0f0;
+      border: 2px solid #333;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+
+    .game-info {
+      margin: 10px 0;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .color-indicator {
+      width: 1.2em;
+      height: 1.2em;
+      display: inline-block;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+      border: 1px solid #333;
+    }
+
     @keyframes fade {
       from {
         opacity: 1.0;
@@ -76,54 +134,186 @@
       animation: fade 3000ms infinite;
       -webkit-animation: fade 3000ms infinite;
     }
+
+    .in {
+      cursor: pointer;
+      transition: stroke-width 0.2s ease;
+    }
+
+    .in:hover {
+      stroke-width: 3;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      button {
+        font-size: 12px;
+        padding: 8px 12px;
+      }
+
+      .game-info {
+        font-size: 14px;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin: 10px 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      svg {
+        max-width: 100%;
+      }
+
+      button {
+        font-size: 11px;
+        padding: 6px 10px;
+        margin: 3px;
+        display: block;
+        width: 200px;
+        margin: 5px auto;
+      }
+
+      .game-info {
+        font-size: 13px;
+      }
+
+      h1 {
+        font-size: 20px;
+        margin: 8px 0;
+      }
+    }
+
+    @media (max-width: 320px) {
+      body {
+        padding: 5px;
+      }
+
+      button {
+        width: 180px;
+        font-size: 10px;
+        padding: 5px 8px;
+      }
+
+      h1 {
+        font-size: 18px;
+      }
+
+      .game-info {
+        font-size: 12px;
+      }
+    }
   </style>
 
   <div id="container"></div>
 
   <script id="template" type="text/ractive">
-    <b>Connect Four</b> <span>{{status}}</span> <br>
-    <button onclick="newGameServer('blue')">
-      new game (blue begins)
-    </button> <br>
-    <button onclick="newGameServer('green')">
-      new game (green begins)
-    </button> <br>
+    <h1>Connect Four</h1>
+    <div class="game-info">{{status}}</div>
+    
+    <div>
+      <button onclick="newGameServer('blue')">
+        New Game (Blue Begins)
+      </button>
+      <button onclick="newGameServer('green')">
+        New Game (Green Begins)
+      </button>
+    </div>
+    
     {{#if data.gameInProgress}}
-      {{#if !data.win}}
-        <span style="background-color:{{data.color}}; width:1em; height:1em; display:inline-block;"></span>
-        {{data.color}}'s turn
-      {{else}}
-        <span style="background-color:{{data.win}}; width:1em; height:1em; display:inline-block;"></span> {{data.win}} has won
-      {{/if}}
-    <br>
-    <svg>
-    {{#each data.grid : columnIndex}}
-      {{#each data.grid[columnIndex] : y}}
-        <circle
-          class="in {{this.blink?'blink':''}}" data-column="{{columnIndex}}"
-         cx="{{ radius + radius*2 * columnIndex }}"
-         cy="{{ radius + radius*2 * y }}" r="{{radius-1}}"
-         data-x="{{columnIndex}}" data-y="{{y}}"
-        stroke="black" fill="{{this.color}}"
-        />
-      {{/each}}
-    {{/each}}
-    </svg>
+      <div class="game-info">
+        {{#if !data.win}}
+          <span class="color-indicator" style="background-color:{{data.color}};"></span>
+          {{data.color}}'s turn
+        {{else}}
+          <span class="color-indicator" style="background-color:{{data.win}};"></span>
+          {{data.win}} has won!
+        {{/if}}
+      </div>
+      
+      <svg viewBox="0 0 {{svgWidth}} {{svgHeight}}" preserveAspectRatio="xMidYMid meet">
+        {{#each data.grid : columnIndex}}
+          {{#each data.grid[columnIndex] : y}}
+            <circle
+              class="in {{this.blink?'blink':''}}" data-column="{{columnIndex}}"
+              cx="{{ radius + radius*2 * columnIndex }}"
+              cy="{{ radius + radius*2 * y }}" 
+              r="{{radius-2}}"
+              data-x="{{columnIndex}}" data-y="{{y}}"
+              stroke="black" 
+              stroke-width="2"
+              fill="{{this.color}}"
+            />
+          {{/each}}
+        {{/each}}
+      </svg>
     {{/if}}
   </script>
 
   <script>
+    // Calculate responsive radius based on viewport
+    function calculateRadius() {
+      const viewportWidth = window.innerWidth;
+      const containerMaxWidth = 600;
+      const effectiveWidth = Math.min(viewportWidth - 40, containerMaxWidth); // Account for padding
+
+      // Calculate radius based on fitting 7 columns with some margin
+      const calculatedRadius = effectiveWidth / 16; // 7 columns * 2 + margin
+
+      // Clamp between reasonable bounds
+      return Math.max(12, Math.min(calculatedRadius, 40));
+    }
+
+    // Calculate SVG dimensions
+    function calculateSVGDimensions(radius) {
+      const sizeX = 7, sizeY = 6;
+      return {
+        width: radius * 2 * sizeX,
+        height: radius * 2 * sizeY
+      };
+    }
+
     var ractive = new Ractive({
       el: '#container',
       template: '#template',
       data: {
-        radius: 10,
+        radius: calculateRadius(),
+        svgWidth: 0,
+        svgHeight: 0,
         data: {
           gameInProgress: false,
         },
       },
       computed: {
       },
+    });
+
+    // Update dimensions
+    function updateDimensions() {
+      const radius = calculateRadius();
+      const dimensions = calculateSVGDimensions(radius);
+      ractive.set('radius', radius);
+      ractive.set('svgWidth', dimensions.width);
+      ractive.set('svgHeight', dimensions.height);
+    }
+
+    // Initial dimension setup
+    updateDimensions();
+
+    // Update dimensions on window resize
+    window.addEventListener('resize', function () {
+      updateDimensions();
+      // Re-attach handlers after resize to ensure they work with new dimensions
+      setTimeout(function () {
+        if (ractive.get('data.gameInProgress')) {
+          setAllHandlers();
+        }
+      }, 100);
     });
 
     const sizeX = 7, sizeY = 6;
