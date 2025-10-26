@@ -21,21 +21,21 @@
   </script>
 
   <script>
-  window.fbAsyncInit = function() {
-    FB.init({
-      appId      : '1029103410471170',
-      xfbml      : true,
-      version    : 'v2.6'
-    });
-  };
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '1029103410471170',
+        xfbml: true,
+        version: 'v2.6'
+      });
+    };
 
-  (function(d, s, id){
-     var js, fjs = d.getElementsByTagName(s)[0];
-     if (d.getElementById(id)) {return;}
-     js = d.createElement(s); js.id = id;
-     js.src = "//connect.facebook.net/en_US/sdk.js";
-     fjs.parentNode.insertBefore(js, fjs);
-   }(document, 'script', 'facebook-jssdk'));
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "//connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
   </script>
 
   <script src="jquery-3.0.0.min.js"></script>
@@ -47,26 +47,30 @@
       from {
         opacity: 1.0;
       }
+
       50% {
         opacity: 0.4;
       }
+
       to {
         opacity: 1.0;
       }
     }
-    
+
     @-webkit-keyframes fade {
       from {
         opacity: 1.0;
       }
+
       50% {
         opacity: 0.4;
       }
+
       to {
         opacity: 1.0;
       }
     }
-    
+
     .blink {
       animation: fade 3000ms infinite;
       -webkit-animation: fade 3000ms infinite;
@@ -126,26 +130,26 @@
     var color;
     ractive.set('data.color', color);
 
-    function emptyGrid(){
+    function emptyGrid() {
       var grid = [];
-      for(var x=0; x<sizeX; x++){
+      for (var x = 0; x < sizeX; x++) {
         var column = [];
-        for(var y=0; y<sizeY; y++){
-          column.push({color:'white', blink:false});
+        for (var y = 0; y < sizeY; y++) {
+          column.push({ color: 'white', blink: false });
         }
         grid.push(column);
       }
       return grid;
     }
-    
+
     // grid operation
-    function insert(columnIndex){
+    function insert(columnIndex) {
       //console.log('insert: '+columnIndex);
       var grid = ractive.get('data.grid');
       var column = grid[columnIndex];
       var inserted = false;
-      for(var y=(sizeY-1); y>=0; y--){
-        if(column[y].color === 'white'){
+      for (var y = (sizeY - 1); y >= 0; y--) {
+        if (column[y].color === 'white') {
           column[y].color = color;
           inserted = true;
           break;
@@ -155,36 +159,36 @@
       return inserted;
     }
 
-    function validIndices(x, y){
-      return (x>=0 && x<sizeX) && (y>=0 && y<sizeY);
+    function validIndices(x, y) {
+      return (x >= 0 && x < sizeX) && (y >= 0 && y < sizeY);
     }
 
     const directions =
-    [
-        [0,1],
-        [1,0],
-        [0,-1],
-        [-1,0],
-        [1,1],
-        [-1,-1],
+      [
+        [0, 1],
+        [1, 0],
+        [0, -1],
+        [-1, 0],
+        [1, 1],
+        [-1, -1],
         [-1, 1],
         [1, -1]
       ];
-    
+
     // grid operation
-    function checkPosDir(x, y, direction){
+    function checkPosDir(x, y, direction) {
       var grid = ractive.get('data.grid');
-      var x2=x;
-      var y2=y;
+      var x2 = x;
+      var y2 = y;
       var circles = [];
-      for(var c=0; c<4; c++){
+      for (var c = 0; c < 4; c++) {
         x2 += direction[0];
         y2 += direction[1];
-        if(!validIndices(x2, y2)) return false;
-        if(grid[x2][y2].color !== color) return false;
+        if (!validIndices(x2, y2)) return false;
+        if (grid[x2][y2].color !== color) return false;
         circles.push([x2, y2]);
       }
-      for(var i=0; i<4; i++){
+      for (var i = 0; i < 4; i++) {
         var pos = circles[i];
         var x = pos[0];
         var y = pos[1];
@@ -194,145 +198,145 @@
       return true;
     }
 
-    function checkEndGame(){
-      for(var x=0; x<sizeX; x++){
-        for(var y=0; y<sizeY; y++){
-          for(var dirI=0; dirI<directions.length; dirI++){
+    function checkEndGame() {
+      for (var x = 0; x < sizeX; x++) {
+        for (var y = 0; y < sizeY; y++) {
+          for (var dirI = 0; dirI < directions.length; dirI++) {
             var direction = directions[dirI];
-            var result = checkPosDir(x,y, direction);
-            if(result) return true;
+            var result = checkPosDir(x, y, direction);
+            if (result) return true;
           }
         }
       }
       return false;
     }
-    
-    function nextTurn(){
-      color = colors[(colors.indexOf(color)+1)%(colors.length)];
+
+    function nextTurn() {
+      color = colors[(colors.indexOf(color) + 1) % (colors.length)];
       ractive.set('data.color', color);
     }
-    
-    function columnClick(columnIndex){
+
+    function columnClick(columnIndex) {
       // is game in progress?
       var win = ractive.get("data.win");
-      if(win) return;
+      if (win) return;
 
       // try to insert
       var inserted = insert(columnIndex);
-      if(!inserted){
+      if (!inserted) {
         // unable to insert
         alert("full");
         return;
-      }else{
+      } else {
         // able to insert, inserted
-        
+
         socket.emit('insertRequest', { column: columnIndex });
         // endgame
         var end = checkEndGame();
-        if(end){
+        if (end) {
           ractive.set('data.win', color);
-          alert(color+' wins');
+          alert(color + ' wins');
         }
       }
       // turns
       nextTurn();
     }
-    
-    function setMoveHandlers(){
-      $(".in").each(function(){
-        $(this).off("click").click(function(){
-          
+
+    function setMoveHandlers() {
+      $(".in").each(function () {
+        $(this).off("click").click(function () {
+
           console.log("setMoveHandlers");
           columnClick($(this).data("column"));
-          
+
         });
-      }); 
+      });
     }
-    
-    function setHoverHandlers(){
+
+    function setHoverHandlers() {
       //for(var columnIndex)
     }
-    
-    function setAllHandlers(){
+
+    function setAllHandlers() {
       setMoveHandlers();
       //setHoverHandlers();
     }
-    
-    function setColor(colorToSet){
+
+    function setColor(colorToSet) {
       color = colorToSet;
       ractive.set('data.color', colorToSet);
     }
-    
-    function newGame(firstTurnColor){
+
+    function newGame(firstTurnColor) {
       ractive.set('data.gameInProgress', false);
       ractive.set('data.winningCircles', []);
-      
-      grid=emptyGrid();
+
+      grid = emptyGrid();
       ractive.set('data.grid', grid);
-      
+
       ractive.set('data.win', null);
-      
+
       setColor(firstTurnColor);
-      
+
       ractive.set('data.gameInProgress', true);
       setAllHandlers();
     }
-    function newGameServer(firstTurnColor){
+    function newGameServer(firstTurnColor) {
       console.log('newGameServer');
       newGame(firstTurnColor);
-      socket.emit('newGameServer', {color: firstTurnColor});
+      socket.emit('newGameServer', { color: firstTurnColor });
     }
 
     socket = io.connect('http://localhost:8080');
-    function setStatus(status){
+    function setStatus(status) {
       ractive.set('status', status);
     }
-    function offline(){
+    function offline() {
       setStatus('offline! (connect error)');
     }
     socket.on('connect_error', offline);
     socket.on('reconnect_error', offline);
-    
-    function online(){
+
+    function online() {
       setStatus('(online)');
     }
     socket.on('connect', online);
     socket.on('reconnect', online);
-    
-    function onInsertPropagated(data){
+
+    function onInsertPropagated(data) {
       console.log('onInsertPropagated');
       var inserted = insert(data.column);
-      if(inserted){
+      if (inserted) {
         var end = checkEndGame();
-        if(end){
+        if (end) {
           win = color;
           ractive.set('data.win', win);
-          alert(color+' wins');
+          alert(color + ' wins');
         }
-        else{
+        else {
           nextTurn();
         }
       }
     }
     socket.on('insertPropagated', onInsertPropagated);
-    
-    function onLoadPageResponse(data){
+
+    function onLoadPageResponse(data) {
       console.log('onLoadPageResponse');
-      
+
       ractive.set('data', data);
       setAllHandlers();
     }
     socket.on('loadPageResponse', onLoadPageResponse);
-    
-    function onNewGamePropagated(data){
+
+    function onNewGamePropagated(data) {
       console.log('onNewGamePropagated');
       newGame(data.color);
     }
     socket.on('newGamePropagated', onNewGamePropagated);
-    
+
     // load page
     socket.emit('loadPageRequest');
-    
+
   </script>
 </body>
 
